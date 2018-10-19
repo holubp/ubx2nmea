@@ -13,6 +13,7 @@ import logging
 import sys
 from datetime import datetime, timedelta
 import argparse 
+import pprint
 
 import pynmea2
 
@@ -304,6 +305,7 @@ class Parser():
         self.fd = open(infile, "rb")
 	self.outfd = open(outfile, "w")
         self.buffer = ""
+	self.lastsolution = { "ITOW" : None }
 
     def readAll(self):
         while True:
@@ -312,8 +314,8 @@ class Parser():
                     break
                 #print("read %s" % repr(data))
                 self.parse(data)
-	close(self.fd)
-	close(self.outfd)
+	self.fd.close()
+	self.outfd.close()
         return True
 
     def parse(self, data):
@@ -389,17 +391,38 @@ class Parser():
                 return
 
         logging.debug( "Got UBX packet of type %s: %s" % (format[-1] , data ) )
-        if (str(format[-1]) == "NAV-PVT"):
-            currentTime = datetime.strptime("%04d-%02d-%02d %02d:%02d:%02d" % (data[0]["year"], data[0]["month"], data[0]["day"], data[0]["hour"], data[0]["min"], data[0]["sec"]), "%Y-%m-%d %H:%M:%S")
-            currentTime += timedelta(microseconds = data[0]["nano"] / 1000)
-	    lon = 1.0 * data[0]["lon"] / 10**7
-	    lat = 1.0 * data[0]["lat"] / 10**7
-	    print data[0]["fixType"]
-	    if (data[0]["fixType"] != "" and data[0]["fixType"] in ubxToNMEAGGAFix):
-		    print(str(pynmea2.GGA('GN', 'GGA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], ubxToNMEAGGAFix[data[0]["fixType"]], '04', '2.6', '100.00', 'M', '-33.9', 'M', '', '0000'))))
+        if (not "ITOW" in data[0]):
+            return
+        if (self.lastsolution["ITOW"] == None):
+            self.lastsolution["ITOW"] = data[0]["ITOW"]
+        if (self.lastsolution["ITOW"] != data[0]["ITOW"]):
+            # dump output for current ITOW here
+            if ("NAV-PVT" in self.lastsolution):
+                currentTime = datetime.strptime("%04d-%02d-%02d %02d:%02d:%02d" % (self.lastsolution["NAV-PVT"]["year"], self.lastsolution["NAV-PVT"]["month"], self.lastsolution["NAV-PVT"]["day"], self.lastsolution["NAV-PVT"]["hour"], self.lastsolution["NAV-PVT"]["min"], self.lastsolution["NAV-PVT"]["sec"]), "%Y-%m-%d %H:%M:%S")
+                currentTime += timedelta(microseconds = self.lastsolution["NAV-PVT"]["nano"] / 1000)
+                lon = 1.0 * self.lastsolution["NAV-PVT"]["lon"] / 10**7
+                lat = 1.0 * self.lastsolution["NAV-PVT"]["lat"] / 10**7
+                #pp.pprint(self.lastsolution)
+                if ("NAV-DOP" in self.lastsolution):
+                    hDOP = 1.0*self.lastsolution["NAV-DOP"]["hDOP"]
+                    logging.debug("Using proper hDOP " + str(hDOP))
+                else:
+                    hDOP = 1.0*self.lastsolution["NAV-PVT"]["pDOP"]
+                    logging.debug("Using fake pDOP " + str(hDOP))
+                hDOP /= 100
+                if (self.lastsolution["NAV-PVT"]["fixType"] != "" and self.lastsolution["NAV-PVT"]["fixType"] in ubxToNMEAGGAFix):
+                    self.outfd.write(str(pynmea2.GGA('GN', 'GGA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]], "%02d" % self.lastsolution["NAV-PVT"]["numSV"], "%01.1f" % (hDOP), "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["hMSL"]/1000), 'M', "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["height"]/1000), 'M', '', '0000'))) + "\n")
+            # end of dump
+            self.lastsolution["ITOW"] = data[0]["ITOW"]
+        if (format[-1] == "NAV-SVINFO" or format[-1] == "RXM-SVSI"):
+            self.lastsolution[format[-1]] = data
+        else:
+            self.lastsolution[format[-1]] = data[0]
 
 
 # main code
+
+pp = pprint.PrettyPrinter(indent=4)
 
 navmsgList = ['NAV-PVT']
 
