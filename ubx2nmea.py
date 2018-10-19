@@ -412,10 +412,13 @@ class Parser():
                 hDOP /= 100
                 if (self.lastsolution["NAV-PVT"]["fixType"] != "" and self.lastsolution["NAV-PVT"]["fixType"] in ubxToNMEAGGAFix):
                     self.outfd.write(str(pynmea2.GGA('GN', 'GGA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]], "%02d" % self.lastsolution["NAV-PVT"]["numSV"], "%01.1f" % (hDOP), "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["hMSL"]/1000), 'M', "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["height"]/1000), 'M', '', '0000'))) + "\n")
+                    self.outfd.write(str(pynmea2.GGA('GN', 'ZDA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), "%02d" % self.lastsolution["NAV-PVT"]["day"], "%02d" % self.lastsolution["NAV-PVT"]["month"], "%04d" % self.lastsolution["NAV-PVT"]["year"],"",""))) + "\n")
+                    self.outfd.write(str(pynmea2.GGA('GN', 'RMC', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), ('A', 'V')[ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]] == "0"], "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], "%03.1f" % (1.0 * self.lastsolution["NAV-PVT"]["gSpeed"] / 514.444), "%03.1f" % (1.0 * self.lastsolution["NAV-PVT"]["headMot"]/10**5), "%02d%02d%s" % (self.lastsolution["NAV-PVT"]["day"], self.lastsolution["NAV-PVT"]["month"], str(self.lastsolution["NAV-PVT"]["year"])[-2:]), "%03.1f" % abs(self.lastsolution["NAV-PVT"]["magDec"]), ('E', 'W')[self.lastsolution["NAV-PVT"]["magDec"]>=0.0] ))) + "\n")
             # end of dump
             self.lastsolution["ITOW"] = data[0]["ITOW"]
         if (format[-1] == "NAV-SVINFO" or format[-1] == "RXM-SVSI"):
-            self.lastsolution[format[-1]] = data
+            #self.lastsolution[format[-1]] = data
+            pass
         else:
             self.lastsolution[format[-1]] = data[0]
 
@@ -429,7 +432,7 @@ navmsgList = ['NAV-PVT']
 parser = argparse.ArgumentParser()
 parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose information on progress')
 parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='debug information on progress')
-parser.add_argument('-G', '--output-GPX', dest='outputGPX', action='store_true', help='output GPX (default: disabled)')
+parser.add_argument('-G', '--output-GPX', dest='outputGPX', action='store_true', help='output GPX, not yet implemented (default: disabled)')
 parser.add_argument('-N', '--navigation-message', dest='navmsg', nargs=1, choices=navmsgList, help='navigation message to use') 
 parser.add_argument('infile', help="Input file name", type=str)
 parser.add_argument('outfile', help="Output file name", type=str)
