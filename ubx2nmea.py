@@ -284,6 +284,114 @@ ubxToNMEAGGAFix = {
 		4 : "1", # combined with dead reconing
 		}
 
+def ubxToNMEASatNum(version, ubxSVID):
+    if (not (version == "2" or version=="3" or version == "4.0" or version == "2ext" or version=="3ext" or version == "4.0ext")):
+        raise ValueError("Unsupported NMEA version")
+
+    if (version == "2" or version=="3" or version == "4.0"):
+        if (ubxSVID >= 1 and ubxSVID <= 32):
+            # normal GPS
+            return (None, ubxSVID)
+        elif (ubxSVID >= 120 and ubxSVID <= 151):
+            # lower SBAS
+            return (None, ubxSVID-87)
+        elif (ubxSVID >= 65 and ubxSVID <= 96):
+            # GLONASS
+            return (None, ubxSVID)
+        elif (ubxSVID == 255):
+            # unknown GLONASS
+            return (None, None)
+        else:
+            return (None, None)
+    elif (version == "2ext" or version=="3ext" or version == "4.0ext"):
+        if (ubxSVID >= 1 and ubxSVID <= 32):
+            # normal GPS
+            return (None, ubxSVID)
+        elif (ubxSVID >= 120 and ubxSVID <= 151):
+            # lower SBAS
+            return (None, ubxSVID-87)
+        elif (ubxSVID >= 152 and ubxSVID <= 158):
+            # upper SBAS
+            return (None, ubxSVID)
+        elif (ubxSVID >= 65 and ubxSVID <= 96):
+            # GLONASS
+            return (None, ubxSVID)
+        elif (ubxSVID == 255):
+            # unknown GLONASS
+            return (None, None)
+        elif (ubxSVID >= 211 and ubxSVID <= 246):
+            # Galileo
+            return (None, ubxSVID+90)
+        elif (ubxSVID >= 159 and ubxSVID <= 163):
+            # upper BeiDou
+            return (None, ubxSVID+242)
+        elif (ubxSVID >= 33 and ubxSVID <= 64):
+            # lower BeiDou
+            return (None, ubxSVID+373)
+        elif ((ubxSVID >= 173 and ubxSVID <= 182) or (ubxSVID >= 193 and ubxSVID <= 197)):
+            # IMES and QZSS
+            return (None, ubxSVID)
+        else:
+            return (None, None)
+    elif (version == "4.1"):
+        if (ubxSVID >= 1 and ubxSVID <= 32):
+            # normal GPS
+            return ("GP", ubxSVID)
+        elif (ubxSVID >= 120 and ubxSVID <= 151):
+            # lower SBAS
+            return ("GP", ubxSVID-87)
+        elif (ubxSVID >= 65 and ubxSVID <= 96):
+            # GLONASS
+            return ("GL", ubxSVID)
+        elif (ubxSVID == 255):
+            # unknown GLONASS
+            return ("GL", None)
+        elif (ubxSVID >= 211 and ubxSVID <= 246):
+            # Galileo
+            return ("GA", ubxSVID-210)
+        elif (ubxSVID >= 159 and ubxSVID <= 163):
+            # upper BeiDou
+            return ("GB", ubxSVID-158)
+        elif (ubxSVID >= 33 and ubxSVID <= 64):
+            # lower BeiDou
+            return ("GB", ubxSVID-27)
+        else:
+            return (None, None)
+    elif (version == "4.1ext"):
+        if (ubxSVID >= 1 and ubxSVID <= 32):
+            # normal GPS
+            return ("GP", ubxSVID)
+        elif (ubxSVID >= 120 and ubxSVID <= 151):
+            # lower SBAS
+            return ("GP", ubxSVID-87)
+        elif (ubxSVID >= 152 and ubxSVID <= 158):
+            # upper SBAS
+            return ("GP", ubxSVID)
+        elif (ubxSVID >= 65 and ubxSVID <= 96):
+            # GLONASS
+            return ("GL", ubxSVID)
+        elif (ubxSVID == 255):
+            # unknown GLONASS
+            return ("GL", None)
+        elif (ubxSVID >= 211 and ubxSVID <= 246):
+            # Galileo
+            return ("GA", ubxSVID-210)
+        elif (ubxSVID >= 159 and ubxSVID <= 163):
+            # upper BeiDou
+            return ("GB", ubxSVID-158)
+        elif (ubxSVID >= 33 and ubxSVID <= 64):
+            # lower BeiDou
+            return ("GB", ubxSVID-27)
+        elif (ubxSVID >= 173 and ubxSVID <= 182):
+            # IMES 
+            return (None, ubxSVID)
+        elif (ubxSVID >= 193 and ubxSVID <= 197):
+            # QZSS
+            return ("QZ", ubxSVID)
+        else:
+            return (None, None)
+
+
 MSGFMT_INV = dict( [ [(CLIDPAIR[clid], le),v + [clid]] for (clid, le),v in MSGFMT.items() ] )
 
 def decdeg2posdms(dd):
@@ -402,7 +510,7 @@ class Parser():
                 currentTime += timedelta(microseconds = self.lastsolution["NAV-PVT"]["nano"] / 1000)
                 lon = 1.0 * self.lastsolution["NAV-PVT"]["lon"] / 10**7
                 lat = 1.0 * self.lastsolution["NAV-PVT"]["lat"] / 10**7
-                #pp.pprint(self.lastsolution)
+                pp.pprint(self.lastsolution)
                 if ("NAV-DOP" in self.lastsolution):
                     hDOP = 1.0*self.lastsolution["NAV-DOP"]["hDOP"]
                     logging.debug("Using proper hDOP " + str(hDOP))
@@ -414,11 +522,29 @@ class Parser():
                     self.outfd.write(str(pynmea2.GGA('GN', 'GGA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]], "%02d" % self.lastsolution["NAV-PVT"]["numSV"], "%01.1f" % (hDOP), "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["hMSL"]/1000), 'M', "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["height"]/1000), 'M', '', '0000'))) + "\n")
                     self.outfd.write(str(pynmea2.GGA('GN', 'ZDA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), "%02d" % self.lastsolution["NAV-PVT"]["day"], "%02d" % self.lastsolution["NAV-PVT"]["month"], "%04d" % self.lastsolution["NAV-PVT"]["year"],"",""))) + "\n")
                     self.outfd.write(str(pynmea2.GGA('GN', 'RMC', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), ('A', 'V')[ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]] == "0"], "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], "%03.1f" % (1.0 * self.lastsolution["NAV-PVT"]["gSpeed"] / 514.444), "%03.1f" % (1.0 * self.lastsolution["NAV-PVT"]["headMot"]/10**5), "%02d%02d%s" % (self.lastsolution["NAV-PVT"]["day"], self.lastsolution["NAV-PVT"]["month"], str(self.lastsolution["NAV-PVT"]["year"])[-2:]), "%03.1f" % abs(self.lastsolution["NAV-PVT"]["magDec"]), ('E', 'W')[self.lastsolution["NAV-PVT"]["magDec"]>=0.0] ))) + "\n")
+            if ("NAV-SVINFO" in self.lastsolution):
+                reportedSVsbyConstellation = {}
+                # this is preparation for NMEA 4.x reporting
+                for i in xrange(1, len(self.lastsolution["NAV-SVINFO"])):
+                    (talkerID, satID) = ubxToNMEASatNum("2ext", self.lastsolution["NAV-SVINFO"][i]["SVID"])
+                    if (talkerID == None): talkerID = "None"
+                    pp.pprint(self.lastsolution["NAV-SVINFO"][i])
+                    pp.pprint((talkerID, satID))
+                    if (not talkerID in reportedSVsbyConstellation): reportedSVsbyConstellation[talkerID] = {}
+                    if (satID != None): reportedSVsbyConstellation[talkerID][satID] = i
+                for con in sorted(reportedSVsbyConstellation):
+                    satsToReport = len(reportedSVsbyConstellation[con])
+                    NMEAcon = (con, '')[con == "None"]
+                    for i in sorted(reportedSVsbyConstellation[con]):
+                        j = reportedSVsbyConstellation[con][i]
+                        if (self.lastsolution["NAV-SVINFO"][j]["QI"] < 4): continue
+                        self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("1", "1", "%d" % self.lastsolution["NAV-PVT"]["numSV"], "%02d" % i, "%-02d" % self.lastsolution["NAV-SVINFO"][j]["Elev"], "%03d" % self.lastsolution["NAV-SVINFO"][j]["Azim"], "%02d" % self.lastsolution["NAV-SVINFO"][j]["CNO"]))) + "\n")
             # end of dump
+            self.lastsolution = {}
             self.lastsolution["ITOW"] = data[0]["ITOW"]
         if (format[-1] == "NAV-SVINFO" or format[-1] == "RXM-SVSI"):
-            #self.lastsolution[format[-1]] = data
-            pass
+            self.lastsolution[format[-1]] = data
+            #pass
         else:
             self.lastsolution[format[-1]] = data[0]
 
