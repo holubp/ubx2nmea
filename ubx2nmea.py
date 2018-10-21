@@ -14,6 +14,7 @@ import sys
 from datetime import datetime, timedelta
 import argparse 
 import pprint
+import math
 
 import pynmea2
 
@@ -285,9 +286,6 @@ ubxToNMEAGGAFix = {
 		}
 
 def ubxToNMEASatNum(version, ubxSVID):
-    if (not (version == "2" or version=="3" or version == "4.0" or version == "2ext" or version=="3ext" or version == "4.0ext")):
-        raise ValueError("Unsupported NMEA version")
-
     if (version == "2" or version=="3" or version == "4.0"):
         if (ubxSVID >= 1 and ubxSVID <= 32):
             # normal GPS
@@ -390,6 +388,9 @@ def ubxToNMEASatNum(version, ubxSVID):
             return ("QZ", ubxSVID)
         else:
             return (None, None)
+    else:
+        raise ValueError("Unsupported NMEA version: " + str(version))
+
 
 
 MSGFMT_INV = dict( [ [(CLIDPAIR[clid], le),v + [clid]] for (clid, le),v in MSGFMT.items() ] )
@@ -510,7 +511,7 @@ class Parser():
                 currentTime += timedelta(microseconds = self.lastsolution["NAV-PVT"]["nano"] / 1000)
                 lon = 1.0 * self.lastsolution["NAV-PVT"]["lon"] / 10**7
                 lat = 1.0 * self.lastsolution["NAV-PVT"]["lat"] / 10**7
-                pp.pprint(self.lastsolution)
+                #pp.pprint(self.lastsolution)
                 if ("NAV-DOP" in self.lastsolution):
                     hDOP = 1.0*self.lastsolution["NAV-DOP"]["hDOP"]
                     logging.debug("Using proper hDOP " + str(hDOP))
@@ -526,19 +527,35 @@ class Parser():
                 reportedSVsbyConstellation = {}
                 # this is preparation for NMEA 4.x reporting
                 for i in xrange(1, len(self.lastsolution["NAV-SVINFO"])):
-                    (talkerID, satID) = ubxToNMEASatNum("2ext", self.lastsolution["NAV-SVINFO"][i]["SVID"])
+                    (talkerID, satID) = ubxToNMEASatNum(args.NMEAversion[0], self.lastsolution["NAV-SVINFO"][i]["SVID"])
                     if (talkerID == None): talkerID = "None"
-                    pp.pprint(self.lastsolution["NAV-SVINFO"][i])
-                    pp.pprint((talkerID, satID))
                     if (not talkerID in reportedSVsbyConstellation): reportedSVsbyConstellation[talkerID] = {}
                     if (satID != None): reportedSVsbyConstellation[talkerID][satID] = i
                 for con in sorted(reportedSVsbyConstellation):
                     satsToReport = len(reportedSVsbyConstellation[con])
                     NMEAcon = (con, '')[con == "None"]
-                    for i in sorted(reportedSVsbyConstellation[con]):
-                        j = reportedSVsbyConstellation[con][i]
-                        if (self.lastsolution["NAV-SVINFO"][j]["QI"] < 4): continue
-                        self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("1", "1", "%d" % self.lastsolution["NAV-PVT"]["numSV"], "%02d" % i, "%-02d" % self.lastsolution["NAV-SVINFO"][j]["Elev"], "%03d" % self.lastsolution["NAV-SVINFO"][j]["Azim"], "%02d" % self.lastsolution["NAV-SVINFO"][j]["CNO"]))) + "\n")
+                    sats = sorted(reportedSVsbyConstellation[con])
+                    NMEAGSVreportsPerMsg = 3
+                    satsReportArray = []
+                    i = 0
+                    msgNo = 0
+                    while (i < len(sats)):
+                        satsInCurrentMsg = 0
+                        while (i < len(sats) and satsInCurrentMsg < NMEAGSVreportsPerMsg):
+                            j = reportedSVsbyConstellation[con][sats[i]]
+                            if (self.lastsolution["NAV-SVINFO"][j]["QI"] < 4): 
+                                i += 1
+                                continue
+                            if (msgNo >= len(satsReportArray)):
+                                satsReportArray.append([])
+                            satsReportArray[msgNo].extend(["%02d" % sats[i], "%-02d" % self.lastsolution["NAV-SVINFO"][j]["Elev"], "%03d" % self.lastsolution["NAV-SVINFO"][j]["Azim"], "%02d" % self.lastsolution["NAV-SVINFO"][j]["CNO"]])
+                            satsInCurrentMsg += 1
+                            i += 1
+                        msgNo += 1
+                    m = 0
+                    while(m<len(satsReportArray)):
+                        self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("%d" % len(satsReportArray), "%d" % (m+1), "%d" % self.lastsolution["NAV-PVT"]["numSV"], ",".join(satsReportArray[m])))) + "\n")
+                        m += 1
             # end of dump
             self.lastsolution = {}
             self.lastsolution["ITOW"] = data[0]["ITOW"]
@@ -558,10 +575,12 @@ navmsgList = ['NAV-PVT']
 parser = argparse.ArgumentParser()
 parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose information on progress')
 parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='debug information on progress')
-parser.add_argument('-G', '--output-GPX', dest='outputGPX', action='store_true', help='output GPX, not yet implemented (default: disabled)')
-parser.add_argument('-N', '--navigation-message', dest='navmsg', nargs=1, choices=navmsgList, help='navigation message to use') 
+#parser.add_argument('-G', '--output-GPX', dest='outputGPX', action='store_true', help='output GPX, not yet implemented (default: disabled)')
+#parser.add_argument('-N', '--navigation-message', dest='navmsg', nargs=1, choices=navmsgList, help='navigation message to use') 
+parser.add_argument('-n', '--NMEA-version', dest='NMEAversion', nargs=1, action='store', help='NMEA version to generate') 
 parser.add_argument('infile', help="Input file name", type=str)
 parser.add_argument('outfile', help="Output file name", type=str)
+parser.set_defaults(NMEAversion = ["2ext"])
 args = parser.parse_args()
 
 
