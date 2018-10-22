@@ -278,12 +278,12 @@ MSGFMT = {
 }
 
 ubxToNMEAGGAFix = {
-		0 : "0",
-		1 : "6",
-		2 : "1",
-		3 : "1",
-		4 : "1", # combined with dead reconing
-		}
+    0 : "0",
+    1 : "6",
+    2 : "1",
+    3 : "1",
+    4 : "1", # combined with dead reconing
+}
 
 def ubxToNMEASatNum(version, ubxSVID):
     if (version == "2" or version=="3" or version == "4.0"):
@@ -412,9 +412,9 @@ def decdeg2posdm(dd):
 class Parser():
     def __init__(self, infile, outfile):
         self.fd = open(infile, "rb")
-	self.outfd = open(outfile, "w")
+        self.outfd = open(outfile, "w")
         self.buffer = ""
-	self.lastsolution = { "ITOW" : None }
+        self.lastsolution = { "ITOW" : None }
 
     def readAll(self):
         while True:
@@ -423,8 +423,8 @@ class Parser():
                     break
                 #print("read %s" % repr(data))
                 self.parse(data)
-	self.fd.close()
-	self.outfd.close()
+        self.fd.close()
+        self.outfd.close()
         return True
 
     def parse(self, data):
@@ -487,8 +487,7 @@ class Parser():
                 fmt_rep = format[3:]
                 # Check if the length matches
                 if (length - fmt_base[0])%fmt_rep[0] != 0:
-                    logging.error( "Variable length message class 0x%x, id 0x%x \
-                        has wrong length %i" % ( cl, id, length ) )
+                    logging.error( "Variable length message class 0x%x, id 0x%x has wrong length %i" % ( cl, id, length ) )
                     return
                 data.append(dict(zip(fmt_base[2], struct.unpack(fmt_base[1], payload[:fmt_base[0]]))))
                 for i in range(0, (length - fmt_base[0])/fmt_rep[0]):
