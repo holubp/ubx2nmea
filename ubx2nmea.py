@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 """
 UBX2NMEA
 
@@ -18,8 +18,8 @@ import math
 
 import pynmea2
 
-SYNC1=0xb5
-SYNC2=0x62
+SYNC1=b'\xb5'
+SYNC2=b'\x62'
 
 CLASS = {
     "NAV" : 0x01,
@@ -413,7 +413,7 @@ class Parser():
     def __init__(self, infile, outfile):
         self.fd = open(infile, "rb")
         self.outfd = open(outfile, "w")
-        self.buffer = ""
+        self.buffer = b''
         self.lastsolution = { "ITOW" : None }
 
     def readAll(self):
@@ -433,10 +433,10 @@ class Parser():
         # Minimum packet length is 8
         while len(self.buffer) >= buffer_offset + 8:
             # Find the beginning of a UBX message
-            start = self.buffer.find( chr( SYNC1 ) + chr( SYNC2 ), buffer_offset )
+            start = self.buffer.find(SYNC1 + SYNC2, buffer_offset)
 
             if buffer_offset == 0 and start != 0:
-                #logging.debug( "Discarded data not UBX %s" % repr(self.buffer[:start]) )
+                logging.debug( "Discarded data not UBX %s" % repr(self.buffer[:start]) )
                 self.buffer = self.buffer[start:]
                 continue
 
@@ -468,7 +468,7 @@ class Parser():
         ck_a = 0
         ck_b = 0
         for i in msg:
-            ck_a = ck_a + ord(i)
+            ck_a = ck_a + i
             ck_b = ck_b + ck_a
         ck_a = ck_a % 256
         ck_b = ck_b % 256
@@ -490,7 +490,7 @@ class Parser():
                     logging.error( "Variable length message class 0x%x, id 0x%x has wrong length %i" % ( cl, id, length ) )
                     return
                 data.append(dict(zip(fmt_base[2], struct.unpack(fmt_base[1], payload[:fmt_base[0]]))))
-                for i in range(0, (length - fmt_base[0])/fmt_rep[0]):
+                for i in range(0, (length - fmt_base[0])//fmt_rep[0]):
                     offset = fmt_base[0] + fmt_rep[0] * i
                     data.append(dict(zip(fmt_rep[2], struct.unpack(fmt_rep[1], payload[offset:offset+fmt_rep[0]]))))
 
@@ -525,7 +525,7 @@ class Parser():
             if ("NAV-SVINFO" in self.lastsolution):
                 reportedSVsbyConstellation = {}
                 # this is preparation for NMEA 4.x reporting
-                for i in xrange(1, len(self.lastsolution["NAV-SVINFO"])):
+                for i in range(1, len(self.lastsolution["NAV-SVINFO"])):
                     (talkerID, satID) = ubxToNMEASatNum(args.NMEAversion[0], self.lastsolution["NAV-SVINFO"][i]["SVID"])
                     if (talkerID == None): talkerID = "None"
                     if (not talkerID in reportedSVsbyConstellation): reportedSVsbyConstellation[talkerID] = {}
