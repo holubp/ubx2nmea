@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import argparse 
 import pprint
 import math
+from functools import reduce
 
 import pynmea2
 
@@ -533,28 +534,12 @@ class Parser():
                 for con in sorted(reportedSVsbyConstellation):
                     satsToReport = len(reportedSVsbyConstellation[con])
                     NMEAcon = (con, '')[con == "None"]
-                    sats = sorted(reportedSVsbyConstellation[con])
+                    sats = list(filter(lambda x: self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["QI"] >= 4, sorted(reportedSVsbyConstellation[con])))
                     NMEAGSVreportsPerMsg = 3
-                    satsReportArray = []
-                    i = 0
-                    msgNo = 0
-                    while (i < len(sats)):
-                        satsInCurrentMsg = 0
-                        while (i < len(sats) and satsInCurrentMsg < NMEAGSVreportsPerMsg):
-                            j = reportedSVsbyConstellation[con][sats[i]]
-                            if (self.lastsolution["NAV-SVINFO"][j]["QI"] < 4): 
-                                i += 1
-                                continue
-                            if (msgNo >= len(satsReportArray)):
-                                satsReportArray.append([])
-                            satsReportArray[msgNo].extend(["%02d" % sats[i], "%-02d" % self.lastsolution["NAV-SVINFO"][j]["Elev"], "%03d" % self.lastsolution["NAV-SVINFO"][j]["Azim"], "%02d" % self.lastsolution["NAV-SVINFO"][j]["CNO"]])
-                            satsInCurrentMsg += 1
-                            i += 1
-                        msgNo += 1
-                    m = 0
-                    while(m<len(satsReportArray)):
-                        self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("%d" % len(satsReportArray), "%d" % (m+1), "%d" % self.lastsolution["NAV-PVT"]["numSV"], ",".join(satsReportArray[m])))) + "\n")
-                        m += 1
+                    if (len(sats) > 0):
+                        satsReports = reduce(lambda x, y: x+y, map(lambda x: ["%02d" % x, "%-02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Elev"], "%03d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Azim"], "%02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["CNO"]], sats))
+                        for i in range(0, len(satsReports), NMEAGSVreportsPerMsg*4):
+                            self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("%d" % len(sats), "%d" % (i/(NMEAGSVreportsPerMsg*4)+1), "%d" % self.lastsolution["NAV-PVT"]["numSV"], ",".join(satsReports[i:i+NMEAGSVreportsPerMsg*4])))) + "\n")
             # end of dump
             self.lastsolution = {}
             self.lastsolution["ITOW"] = data[0]["ITOW"]
