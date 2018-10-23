@@ -522,9 +522,31 @@ class Parser():
                     logging.debug("Using fake pDOP " + str(hDOP))
                 hDOP /= 100
                 if (self.lastsolution["NAV-PVT"]["fixType"] != "" and self.lastsolution["NAV-PVT"]["fixType"] in ubxToNMEAGGAFix):
-                    self.outfd.write(str(pynmea2.GGA('GN', 'GGA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]], "%02d" % self.lastsolution["NAV-PVT"]["numSV"], "%01.1f" % (hDOP), "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["hMSL"]/1000), 'M', "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["height"]/1000), 'M', '', '0000'))) + "\n")
-                    self.outfd.write(str(pynmea2.GGA('GN', 'ZDA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), "%02d" % self.lastsolution["NAV-PVT"]["day"], "%02d" % self.lastsolution["NAV-PVT"]["month"], "%04d" % self.lastsolution["NAV-PVT"]["year"],"",""))) + "\n")
-                    self.outfd.write(str(pynmea2.GGA('GN', 'RMC', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), ('A', 'V')[ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]] == "0"], "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], "%03.1f" % (1.0 * self.lastsolution["NAV-PVT"]["gSpeed"] / 514.444), "%03.1f" % (1.0 * self.lastsolution["NAV-PVT"]["headMot"]/10**5), "%02d%02d%s" % (self.lastsolution["NAV-PVT"]["day"], self.lastsolution["NAV-PVT"]["month"], str(self.lastsolution["NAV-PVT"]["year"])[-2:]), "%03.1f" % abs(self.lastsolution["NAV-PVT"]["magDec"]), ('E', 'W')[self.lastsolution["NAV-PVT"]["magDec"]>=0.0] ))) + "\n")
+                    self.outfd.write(str(pynmea2.GGA('GN', 'GGA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), 
+                        "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), 
+                        ('S','N')[lat>=0.0], 
+                        "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), 
+                        ('W','E')[lon>=0.0], 
+                        ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]], 
+                        "%02d" % self.lastsolution["NAV-PVT"]["numSV"], "%01.1f" % (hDOP), 
+                        "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["hMSL"]/1000), 'M', 
+                        "%.1f" % (1.0*self.lastsolution["NAV-PVT"]["height"]/1000), 'M', '', '0000'))
+                        ) + "\n")
+                    self.outfd.write(str(pynmea2.GGA('GN', 'ZDA', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), 
+                        "%02d" % self.lastsolution["NAV-PVT"]["day"], 
+                        "%02d" % self.lastsolution["NAV-PVT"]["month"], 
+                        "%04d" % self.lastsolution["NAV-PVT"]["year"],"",""))) + "\n")
+                    self.outfd.write(str(pynmea2.GGA('GN', 'RMC', (currentTime.strftime("%H%M%S") + ".%02d" % (currentTime.microsecond/10000), 
+                        ('A', 'V')[ubxToNMEAGGAFix[self.lastsolution["NAV-PVT"]["fixType"]] == "0"], 
+                        "%02d%02.5f" % (divmod(abs(lat)*60, 60.0)), ('S','N')[lat>=0.0], 
+                        "%03d%02.5f" % (divmod(abs(lon)*60, 60.0)), ('W','E')[lon>=0.0], 
+                        "%03.1f" % (1.0 * self.lastsolution["NAV-PVT"]["gSpeed"] / 514.444), 
+                        "%03.1f" % (1.0 * self.lastsolution["NAV-PVT"]["headMot"]/10**5), 
+                        "%02d%02d%s" % (self.lastsolution["NAV-PVT"]["day"], 
+                            self.lastsolution["NAV-PVT"]["month"], 
+                            str(self.lastsolution["NAV-PVT"]["year"])[-2:]), 
+                        "%03.1f" % abs(self.lastsolution["NAV-PVT"]["magDec"]), ('E', 'W')[self.lastsolution["NAV-PVT"]["magDec"]>=0.0] ))
+                        ) + "\n")
             if ("NAV-SVINFO" in self.lastsolution):
                 reportedSVsbyConstellation = {}
                 # this is preparation for NMEA 4.x reporting
@@ -539,9 +561,15 @@ class Parser():
                     sats = [s for s in sorted(reportedSVsbyConstellation[con]) if self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][s]]["QI"] >= 4]
                     NMEAGSVreportsPerMsg = 3
                     if (len(sats) > 0):
-                        satsReports = flatten([["%02d" % x, "%-02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Elev"], "%03d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Azim"], "%02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["CNO"]] for x in sats])
+                        satsReports = flatten([["%02d" % x, 
+                            "%-02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Elev"], 
+                            "%03d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Azim"], 
+                            "%02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["CNO"]] 
+                            for x in sats])
                         for i in range(0, len(satsReports), NMEAGSVreportsPerMsg*4):
-                            self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("%d" % len(sats), "%d" % (i/(NMEAGSVreportsPerMsg*4)+1), "%d" % self.lastsolution["NAV-PVT"]["numSV"], ",".join(satsReports[i:i+NMEAGSVreportsPerMsg*4])))) + "\n")
+                            self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("%d" % len(sats), 
+                                "%d" % (i/(NMEAGSVreportsPerMsg*4)+1), "%d" % self.lastsolution["NAV-PVT"]["numSV"], 
+                                ",".join(satsReports[i:i+NMEAGSVreportsPerMsg*4])))) + "\n")
             # end of dump
             self.lastsolution = {}
             self.lastsolution["ITOW"] = data[0]["ITOW"]
