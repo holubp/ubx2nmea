@@ -537,7 +537,7 @@ class Parser():
                     sats = [s for s in sorted(reportedSVsbyConstellation[con]) if self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][s]]["QI"] >= 4]
                     NMEAGSVreportsPerMsg = 3
                     if (len(sats) > 0):
-                        satsReports = reduce(lambda x, y: x+y, [["%02d" % x, "%-02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Elev"], "%03d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Azim"], "%02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["CNO"]] for x in sats])
+                        satsReports = [x for sl in [["%02d" % x, "%-02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Elev"], "%03d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Azim"], "%02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["CNO"]] for x in sats] for x in sl]
                         for i in range(0, len(satsReports), NMEAGSVreportsPerMsg*4):
                             self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("%d" % len(sats), "%d" % (i/(NMEAGSVreportsPerMsg*4)+1), "%d" % self.lastsolution["NAV-PVT"]["numSV"], ",".join(satsReports[i:i+NMEAGSVreportsPerMsg*4])))) + "\n")
             # end of dump
