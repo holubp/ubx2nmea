@@ -558,7 +558,9 @@ class Parser():
                 for con in sorted(reportedSVsbyConstellation):
                     satsToReport = len(reportedSVsbyConstellation[con])
                     NMEAcon = (con, '')[con == "None"]
-                    sats = [s for s in sorted(reportedSVsbyConstellation[con]) if self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][s]]["QI"] >= 4]
+                    minQI = 4
+                    lockedSats = 0
+                    sats = [s for s in sorted(reportedSVsbyConstellation[con]) if self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][s]]["QI"] >= minQI]
                     NMEAGSVreportsPerMsg = 3
                     if (len(sats) > 0):
                         satsReports = flatten([["%02d" % x, 
@@ -566,9 +568,15 @@ class Parser():
                             "%03d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["Azim"], 
                             "%02d" % self.lastsolution["NAV-SVINFO"][reportedSVsbyConstellation[con][x]]["CNO"]] 
                             for x in sats])
+                        if ("NAV-PVT" in self.lastsolution):
+                            if (len(sats) != self.lastsolution["NAV-PVT"]["numSV"]):
+                                logging.info("Inconsistency in number of satellites observed: NAV-PVT reported %d, while NAV-SVINFO indicated %d with minimum QI of %d" % (self.lastsolution["NAV-PVT"]["numSV"], len(sats), minQI))
+                            lockedSats = self.lastsolution["NAV-PVT"]["numSV"]
+                        else:
+                            lockedSats = len(sats)
                         for i in range(0, len(satsReports), NMEAGSVreportsPerMsg*4):
                             self.outfd.write(str(pynmea2.GSV(NMEAcon, 'GSV', ("%d" % len(sats), 
-                                "%d" % (i/(NMEAGSVreportsPerMsg*4)+1), "%d" % self.lastsolution["NAV-PVT"]["numSV"], 
+                                "%d" % (i/(NMEAGSVreportsPerMsg*4)+1), "%d" % lockedSats, 
                                 ",".join(satsReports[i:i+NMEAGSVreportsPerMsg*4])))) + "\n")
             # end of dump
             self.lastsolution = {}
